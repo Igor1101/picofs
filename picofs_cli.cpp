@@ -11,8 +11,8 @@ using namespace std;
 void picofs_cli::newline()
 {
     cmd_line.erase();
+    cout << endl << fs->get_current_dir() << "=> " ;
     cin >> cmd_line;
-    cout << endl << dir_name << "=> " ;
 }
 
 void picofs_cli::parse()
@@ -25,17 +25,24 @@ void picofs_cli::parse()
     // get arguments:
     vector <string> args = results;
     args.erase(args.begin());
+    run_cmd(cmd, args);
 }
 
 void picofs_cli::run_cmd(std::string cmd, std::vector <std::string>args)
 {
     if(cmd == "help") {
-        printf(" mount umount filestat ls create open close read write link unlink truncate");
+        p(" mount umount filestat ls create open close read write link unlink truncate");
     } else if(cmd == "mount") {
         fs->mount();
     } else if(cmd == "umount") {
         fs->umount();
     } else if(cmd == "format") {
         fs->format();
+    } else if(cmd == "create") {
+        fs->create(args.operator[](1));
+    } else if(cmd == "exit") {
+        if(!fs->is_mounted())
+            fs->umount();
+        exit(0);
     }
 }

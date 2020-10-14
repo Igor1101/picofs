@@ -39,6 +39,23 @@ void* readblk(size_t num)
     return blk;
 }
 
+void* readblks(size_t num, size_t amount)
+{
+    static uint8_t* blk = new uint8_t[BLK_SIZE*amount];
+    int res = fseek(file_fs, num*BLK_SIZE, SEEK_SET);
+    if(res != 0) {
+        pd("can`t fseek to blk=%zu", num);
+        return NULL;
+    }
+    size_t sz = fread(blk, BLK_SIZE, amount, file_fs);
+    if(sz != amount) {
+        perror(strerror(errno));
+        pd("can`t fread to blk=%zu sz returned =%zd amount=%d", num, sz, amount);
+        return NULL;
+    }
+    return blk;
+}
+
 void writeblk(size_t num, void* blk)
 {
     int res = fseek(file_fs, num*BLK_SIZE, SEEK_SET);
@@ -47,6 +64,18 @@ void writeblk(size_t num, void* blk)
         return;
     }
     fwrite(blk, BLK_SIZE, 1, file_fs);
+}
+
+void writeblks(size_t num, void*data, size_t datasz)
+{
+  //  void* old_data = readblks(num, datasz / BLK_SIZE + 1);
+ //   memcpy(old_data, data, datasz);
+    int res = fseek(file_fs, num*BLK_SIZE, SEEK_SET);
+    if(res != 0) {
+        pd("can`t fseek to blk=%zu", num);
+        return;
+    }
+    fwrite(data, datasz,1, file_fs);
 }
 // platform not dependent
 
@@ -59,6 +88,8 @@ picofs::picofs()
     pd("amount of blks = %d", blk_amount);
     if(blk_amount < 8/* this is too little or fatal error occured*/) {
         exists = false;
+        close_access();
+        exit(-1);
     } else {
         exists = true;
     }
@@ -104,8 +135,9 @@ bool picofs::mount()
         return true;
     }
     if(!is_exists()) {
-        p("disk does not exist or something wrong with it");
-        return false;
+        p("open disc");
+        open_access();
+        exists = true;
     }
     bool start_correct = start_is_correct();
     if(!start_correct) {
@@ -117,17 +149,11 @@ bool picofs::mount()
         p("cant open blk 0");
         return false;
     }
-    size_t i;
-    for(i=0; i<sizeof descs; i+=BLK_SIZE) {
-        pd("getting descs blk%zu", i);
-        void*blki = readblk(i);
-        if(blki == NULL) {
-            p("cant get blk%zu for descriptors", i);
-            return false;
-        }
-        memcpy(reinterpret_cast<uint8_t*>(&descs) + i, blki, sizeof descs);
-    }
-    blks_for_descs = i / sizeof descs;
+    unsigned int i;
+    int blks_for_dsks = sizeof descs / BLK_SIZE + 1;
+    // create array of blks
+    void *blks = readblks(0, blks_for_dsks);
+    memcpy(&descs, blks, sizeof descs);
     // here goto root directory (0 descriptor)
     current_dir = &descs.inst[0];
     current_dir_name = magic;
@@ -142,7 +168,13 @@ bool picofs::umount()
         return false;
     }
     // save all changes if needed
+    writeblks(0, &descs, sizeof descs);
+
     mounted = false;
+    exists = false;
+    current_dir_name = "";
+    current_dir = NULL;
+    close_access();
     return true;
 }
 
@@ -152,16 +184,30 @@ bool picofs::format()
         p("is mounted");
         return false;
     }
+    if(!is_exists()) {
+        p("opening disc");
+        open_access();
+        exists = true;
+    }
     // configure descriptors
     strncpy(descs.magic_num, magic.c_str(), NAME_SZ);
     for(int i=0; i<DESCS_NUMBER; i++) {
         descs.inst[i].links_amount = 0;
     }
-    // write to the 1st blks
-    size_t i;
-    for(i=0; i<sizeof descs; i+=BLK_SIZE) {
-        pd("writing descs blk%zu", i);
-        writeblk(i,reinterpret_cast<uint8_t*>(&descs) + i);
-    }
+    // write from the 1st blks
+    writeblks(0, &descs, sizeof descs);
     return true;
+}
+
+
+bool picofs::create(std::string fname)
+{
+    // find empty space for descriptor
+    for(int i=0; i<DESCS_NUMBER; i++) {
+        if(descs.inst[i].links_amount == 0) {
+            // found such space
+            // find space in fs
+        }
+    }
+    return false;
 }

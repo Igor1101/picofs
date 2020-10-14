@@ -5,8 +5,8 @@
 #include <string>
 #define p(...)    do { printf(__VA_ARGS__); puts("");  }while(0)
 #define pd(...)    do { printf(__VA_ARGS__); puts("");  }while(0)
-#define xstr(s) str(s)
-#define str(s) #s
+#define STR(s) XSTR(s)
+#define XSTR(s) #s
 #define BLK_SIZE 512
 #define MX_BLOCKS_PER_FILE 16
 #define NAME_SZ 16
@@ -16,6 +16,8 @@ void close_access(void);
 void open_access(void);
 void* readblk(size_t num);
 void writeblk(size_t num, void* blk);
+void* readblks(size_t num, size_t amount);
+void writeblks(size_t num, void*data, size_t datasz);
 
 // platform independent
 enum ftype_t {
@@ -47,9 +49,8 @@ struct all_descs_t {
 class picofs
 {
 private:
-    const std::string magic = "PICOFS" str(BLK_SIZE);
+    const std::string magic = "PICOFS" STR(BLK_SIZE);
     all_descs_t descs ;
-    size_t blks_for_descs = 0;
     // return amount of blks
     int get_blk_amount();
     // return 0 if fs 0 blk is OK,
@@ -59,6 +60,7 @@ private:
     bool mounted = false;
     descr_t* current_dir;
     std::string current_dir_name;
+    bool *blk_busy = NULL;
 public:
     std::string get_current_dir()
     {
@@ -75,6 +77,7 @@ public:
     bool mount();
     bool umount();
     bool format();
+    bool create(std::string fname);
     bool start_is_correct();
     int blk_amount;
     picofs();
