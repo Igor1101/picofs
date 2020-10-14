@@ -154,6 +154,10 @@ bool picofs::mount()
     // create array of blks
     void *blks = readblks(0, blks_for_dsks);
     memcpy(&descs, blks, sizeof descs);
+    // here create map with free and busy blks
+    blk_amount = get_blk_amount();
+    blk_busy = new bool[blk_amount] ;
+    blk_busy_refresh();
     // here goto root directory (0 descriptor)
     current_dir = &descs.inst[0];
     current_dir_name = magic;
@@ -174,6 +178,7 @@ bool picofs::umount()
     exists = false;
     current_dir_name = "";
     current_dir = NULL;
+    delete [] blk_busy;
     close_access();
     return true;
 }
@@ -202,6 +207,11 @@ bool picofs::format()
 
 bool picofs::create(std::string fname)
 {
+    if(!is_mounted()) {
+        p("fs is not mounted");
+        return false;
+    }
+
     // find empty space for descriptor
     for(int i=0; i<DESCS_NUMBER; i++) {
         if(descs.inst[i].links_amount == 0) {
@@ -210,4 +220,36 @@ bool picofs::create(std::string fname)
         }
     }
     return false;
+}
+
+descr_t* picofs::get_empty_desc()
+{
+     for(int i=0; i<DESCS_NUMBER; i++) {
+        if(descs.inst[i].links_amount == 0) {
+            return &descs.inst[i];
+        }
+    }
+     return NULL;
+}
+
+// this is usually only needed at mount
+void picofs::blk_busy_refresh()
+{
+    if(blk_busy == NULL) {
+        p("blk_busy == NULL");
+        exit(-1);
+    }
+    memset(blk_busy, 0, blk_amount / sizeof blk_busy[0]);
+    for(int des=0; des<DESCS_NUMBER; des++) {
+        if(descs.inst[des].links_amount == 0) {
+            continue;
+        }
+        for(int blki=0; (blki<MX_BLOCKS_PER_FILE) && (blki*BLK_SIZE<descs.inst[des].sz); blki++) {
+            size_t blk = descs.inst[des].blks[blki];
+            if(blk>blk_amount) {
+                p("in file descriptor invalid blk file=%d, blk=%zu", des, blk);
+            }
+            blk_busy[blk] = true;
+        }
+    }
 }

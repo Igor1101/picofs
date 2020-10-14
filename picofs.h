@@ -56,11 +56,16 @@ private:
     // return 0 if fs 0 blk is OK,
     // return -1 if something wrong with it
     int verify_magic();
+    // return desc if success
+    // return NULL if not found empty
+    descr_t* get_empty_desc();
     bool exists = false;
     bool mounted = false;
     descr_t* current_dir;
     std::string current_dir_name;
     bool *blk_busy = NULL;
+    size_t blk_amount;
+    void blk_busy_refresh();
 public:
     std::string get_current_dir()
     {
@@ -79,7 +84,6 @@ public:
     bool format();
     bool create(std::string fname);
     bool start_is_correct();
-    int blk_amount;
     picofs();
     ~picofs();
 };
