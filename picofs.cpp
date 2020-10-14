@@ -12,7 +12,8 @@ void open_access(void)
 {
     file_fs = fopen("bin.txt", "r+");
     if(file_fs == NULL) {
-        fprintf(stderr, "%s", strerror(errno));
+        fprintf(stderr, "%s (opening bin.txt)", strerror(errno));
+        exit(-1);
     }
 }
 

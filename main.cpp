@@ -8,10 +8,8 @@ static void do_finish_staff(void);
 
 int main(int argc, char *argv[])
 {
-    // args: fs path
-    if(argc <= 1) {
-        cout << "invalid args: 1t: fs path" << endl;
-    }
+    (void)argc;
+    (void)argv;
     cout << "fs " << endl;
     picofs fs;
     if(!fs.is_exists()) {

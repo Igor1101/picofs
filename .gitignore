@@ -1,6 +1,6 @@
 # This file is used to ignore files which are generated
 # ----------------------------------------------------------------------------
-
+bin.txt
 *~
 *.autosave
 *.a
@@ -70,4 +70,5 @@ Thumbs.db
 # --------
 *.dll
 *.exe
+CMakeLists.txt.user.41fc645
 
