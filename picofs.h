@@ -14,7 +14,8 @@
 // platform dependent
 void close_access(void);
 void open_access(void);
-void* readblk(int num);
+void* readblk(size_t num);
+void writeblk(size_t num, void* blk);
 
 // platform independent
 enum ftype_t {
@@ -47,7 +48,8 @@ class picofs
 {
 private:
     const std::string magic = "PICOFS" str(BLK_SIZE);
-    all_descs_t* descs = NULL;
+    all_descs_t descs ;
+    size_t blks_for_descs = 0;
     // return amount of blks
     int get_blk_amount();
     // return 0 if fs 0 blk is OK,
@@ -55,7 +57,13 @@ private:
     int verify_magic();
     bool exists = false;
     bool mounted = false;
+    descr_t* current_dir;
+    std::string current_dir_name;
 public:
+    std::string get_current_dir()
+    {
+        return current_dir_name;
+    }
     bool is_mounted ()
     {
         return mounted;
@@ -64,7 +72,10 @@ public:
     {
         return exists;
     }
-    bool fs_start_correct();
+    bool mount();
+    bool umount();
+    bool format();
+    bool start_is_correct();
     int blk_amount;
     picofs();
     ~picofs();

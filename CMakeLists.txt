@@ -15,6 +15,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Qt5Core)
 
 add_executable(picofs
-  main.cpp picofs.cpp picofs.h picofs_cli.cpp picofs.h
+  main.cpp picofs.cpp picofs.h picofs_cli.cpp picofs_cli.h
 )
 target_link_libraries(picofs)
