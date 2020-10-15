@@ -199,6 +199,12 @@ bool picofs::format()
     for(int i=0; i<DESCS_NUMBER; i++) {
         descs.inst[i].links_amount = 0;
     }
+    int blks_for_dsks = sizeof descs / BLK_SIZE + 1;
+    // create root directory, its 0 blk
+    descs.inst[0].blks[0] = blks_for_dsks;
+    descs.inst[0].links_amount = 1;
+    descs.inst[0].sz = 0;
+    descs.inst[0].type = ftype_dir;
     // write from the 1st blks
     writeblks(0, &descs, sizeof descs);
     return true;
@@ -213,13 +219,18 @@ bool picofs::create(std::string fname)
     }
 
     // find empty space for descriptor
-    for(int i=0; i<DESCS_NUMBER; i++) {
-        if(descs.inst[i].links_amount == 0) {
-            // found such space
-            // find space in fs
-        }
+    descr_t* fd = get_empty_desc();
+    if(fd == NULL) {
+        p("no empty descs found");
+        return false;
     }
-    return false;
+    int blk0 = get_empty_blk();
+    if(blk0 < 0) {
+        p("no free blk");
+        return false;
+    }
+    // now create file
+    // its name
 }
 
 descr_t* picofs::get_empty_desc()
@@ -230,6 +241,18 @@ descr_t* picofs::get_empty_desc()
         }
     }
      return NULL;
+}
+
+int picofs::get_empty_blk()
+{
+    for(int i=0; i<blk_amount; i++) {
+        if(!blk_busy[i]) {
+            // blk not busy
+            blk_busy[i] = true;
+            return i;
+        }
+    }
+    return -1;
 }
 
 // this is usually only needed at mount
@@ -245,10 +268,13 @@ void picofs::blk_busy_refresh()
             continue;
         }
         for(int blki=0; (blki<MX_BLOCKS_PER_FILE) && (blki*BLK_SIZE<descs.inst[des].sz); blki++) {
-            size_t blk = descs.inst[des].blks[blki];
+            int blk = descs.inst[des].blks[blki];
             if(blk>blk_amount) {
                 p("in file descriptor invalid blk file=%d, blk=%zu", des, blk);
             }
+            int blks_for_dsks = sizeof descs / BLK_SIZE + 1;
+            if(blki < blks_for_dsks)
+                continue;
             blk_busy[blk] = true;
         }
     }

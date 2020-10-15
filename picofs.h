@@ -64,8 +64,9 @@ private:
     descr_t* current_dir;
     std::string current_dir_name;
     bool *blk_busy = NULL;
-    size_t blk_amount;
+    int blk_amount;
     void blk_busy_refresh();
+    int get_empty_blk();
 public:
     std::string get_current_dir()
     {

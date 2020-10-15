@@ -44,5 +44,7 @@ void picofs_cli::run_cmd(std::string cmd, std::vector <std::string>args)
         if(!fs->is_mounted())
             fs->umount();
         exit(0);
+    } else if(cmd == "ls") {
+        fs->ls();
     }
 }
