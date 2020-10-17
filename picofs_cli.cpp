@@ -12,7 +12,7 @@ void picofs_cli::newline()
 {
     cmd_line.erase();
     cout << endl << fs->get_current_dir() << "=> " ;
-    cin >> cmd_line;
+    getline(cin, cmd_line);
 }
 
 void picofs_cli::parse()
@@ -39,7 +39,7 @@ void picofs_cli::run_cmd(std::string cmd, std::vector <std::string>args)
     } else if(cmd == "format") {
         fs->format();
     } else if(cmd == "create") {
-        fs->create(args.operator[](1));
+        fs->create(args.operator[](0));
     } else if(cmd == "exit") {
         if(!fs->is_mounted())
             fs->umount();
