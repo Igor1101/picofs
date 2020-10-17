@@ -384,7 +384,7 @@ ssize_t picofs::read(int fd, void *buf, size_t count, size_t offset)
         return 0;
     descr_t* dfd = &descs.inst[fd];
     size_t buf_offset = 0;
-    for(size_t i=offset; i < count && i < dfd->sz; ) {
+    for(size_t i=offset; i < count+offset && i < dfd->sz; ) {
         // block num
         int blk_num = i / BLK_SIZE;
         // read block
