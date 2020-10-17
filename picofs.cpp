@@ -358,15 +358,15 @@ bool picofs::append(int fd, void*data, size_t sz)
     int blk1_num = blk_amount_used;
     if(!use2blks) {
         void*blk0 = readblk(dfd->blks[blk0_num]);
-        memcpy(blk0,  data, sz);
-        writeblk(blk0_num, blk0);
+        memcpy((uint8_t*)blk0+last_blk_sz,  data, sz);
+        writeblk(dfd->blks[blk0_num], blk0);
     } else {
         void*blk0 = readblk(dfd->blks[blk0_num]);
         void*blk1 = readblk(dfd->blks[blk1_num]);
         memcpy((uint8_t*)blk0+last_blk_sz,  data, BLK_SIZE - last_blk_sz);
         memcpy((uint8_t*)blk1, (uint8_t*)data + BLK_SIZE - last_blk_sz, sz - (BLK_SIZE - last_blk_sz));
-        writeblk(blk0_num, blk0);
-        writeblk(blk1_num, blk1);
+        writeblk(dfd->blks[blk0_num], blk0);
+        writeblk(dfd->blks[blk1_num], blk1);
     }
     return true;
 }
