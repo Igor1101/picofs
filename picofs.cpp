@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
+#include <cassert>
 #include "picofs.h"
 
 using namespace std;
@@ -149,7 +150,6 @@ bool picofs::mount()
         p("cant open blk 0");
         return false;
     }
-    unsigned int i;
     int blks_for_dsks = sizeof descs / BLK_SIZE + 1;
     // create array of blks
     void *blks = readblks(0, blks_for_dsks);
@@ -159,7 +159,7 @@ bool picofs::mount()
     blk_busy = new bool[blk_amount] ;
     blk_busy_refresh();
     // here goto root directory (0 descriptor)
-    current_dir = &descs.inst[0];
+    fd_current_dir = 0;
     current_dir_name = magic;
     mounted = true;
     return true;
@@ -177,7 +177,7 @@ bool picofs::umount()
     mounted = false;
     exists = false;
     current_dir_name = "";
-    current_dir = NULL;
+    fd_current_dir = -1;
     delete [] blk_busy;
     close_access();
     return true;
@@ -219,8 +219,8 @@ bool picofs::create(std::string fname)
     }
 
     // find empty space for descriptor
-    descr_t* fd = get_empty_desc();
-    if(fd == NULL) {
+    int fd = get_empty_desc();
+    if(fd < 0) {
         p("no empty descs found");
         return false;
     }
@@ -229,18 +229,26 @@ bool picofs::create(std::string fname)
         p("no free blk");
         return false;
     }
-    // now create file
-    // its name
+    // now create fd
+    descs.inst[fd].blks[0] = blk0;
+    descs.inst[fd].links_amount = 0;
+    descs.inst[fd].sz = 0;
+    descs.inst[fd].type = ftype_hlink;
+    // its name in current directory
+    assert(fd_current_dir >= 0);
+    // append to dir
+    dir_add_file(fd_current_dir, fname, fd);
+    return true;
 }
 
-descr_t* picofs::get_empty_desc()
+int picofs::get_empty_desc()
 {
      for(int i=0; i<DESCS_NUMBER; i++) {
         if(descs.inst[i].links_amount == 0) {
-            return &descs.inst[i];
+            return i;
         }
     }
-     return NULL;
+     return -1;
 }
 
 int picofs::get_empty_blk()
@@ -263,6 +271,12 @@ void picofs::blk_busy_refresh()
         exit(-1);
     }
     memset(blk_busy, 0, blk_amount / sizeof blk_busy[0]);
+    // fill blks used by descriptors
+    int blks_for_dsks = sizeof descs / BLK_SIZE + 1;
+    for(int i=0; i<blks_for_dsks; i++) {
+        blk_busy[i] = true;
+    }
+    // fill blks according to descriptors
     for(int des=0; des<DESCS_NUMBER; des++) {
         if(descs.inst[des].links_amount == 0) {
             continue;
@@ -270,12 +284,121 @@ void picofs::blk_busy_refresh()
         for(int blki=0; (blki<MX_BLOCKS_PER_FILE) && (blki*BLK_SIZE<descs.inst[des].sz); blki++) {
             int blk = descs.inst[des].blks[blki];
             if(blk>blk_amount) {
-                p("in file descriptor invalid blk file=%d, blk=%zu", des, blk);
+                p("in file descriptor invalid blk file=%d, blk=%u", des, blk);
             }
-            int blks_for_dsks = sizeof descs / BLK_SIZE + 1;
             if(blki < blks_for_dsks)
                 continue;
             blk_busy[blk] = true;
         }
     }
+}
+
+void picofs::ls()
+{
+    f_link_t flink;
+    // open current dir
+    descr_t* dfd = &descs.inst[fd_current_dir];
+    for(int i=0; i<dfd->sz; i+=sizeof(f_link_t)) {
+        read(fd_current_dir, &flink, sizeof flink, i);
+        p("%d %s", flink.desc_num, flink.name);
+    }
+}
+
+bool picofs::dir_add_file(int dir, std::string fname, int fd)
+{
+    f_link_t link;
+    link.desc_num = fd;
+    strncpy(link.name, fname.c_str(), NAME_SZ);
+    // here append flink to directory
+    descr_t *ddir = &descs.inst[dir];
+    assert (ddir->type == ftype_dir );
+    bool res = append(dir, &link, sizeof link);
+    if(res) {
+        descs.inst[fd].links_amount++;
+        return true;
+    }
+    return false;
+}
+
+bool picofs::append(int fd, void*data, size_t sz)
+{
+    if(sz > BLK_SIZE) {
+        p("cant write more than  1 blk");
+        return false;
+    }
+    if(fd < 0)
+        return false;
+    descr_t* dfd = &descs.inst[fd];
+    // file current size
+    size_t fsz = dfd->sz;
+    // amount of blks used for this file
+    size_t blk_amount_used = fsz / BLK_SIZE+1;
+    // last part size
+    size_t last_blk_sz = fsz - (blk_amount_used-1) * BLK_SIZE;
+    // verify if we need to add a new block for this
+    bool use2blks = false;
+    if(sz + last_blk_sz >= BLK_SIZE) {
+        use2blks = true;
+        if(blk_amount_used > MX_BLOCKS_PER_FILE) {
+            p("size of file has reached max possible");
+            return false;
+        }
+        // add new blk
+        int blknew = get_empty_blk();
+        if(blknew < 0) {
+            p("cant append, cant get new blk");
+            return false;
+        }
+        dfd->blks[blk_amount_used] = blknew;
+    }
+    // now write
+    dfd->sz += sz;
+    // append prev block part
+    int blk0_num = blk_amount_used - 1;
+    int blk1_num = blk_amount_used;
+    if(!use2blks) {
+        void*blk0 = readblk(dfd->blks[blk0_num]);
+        memcpy(blk0,  data, sz);
+        writeblk(blk0_num, blk0);
+    } else {
+        void*blk0 = readblk(dfd->blks[blk0_num]);
+        void*blk1 = readblk(dfd->blks[blk1_num]);
+        memcpy((uint8_t*)blk0+last_blk_sz,  data, BLK_SIZE - last_blk_sz);
+        memcpy((uint8_t*)blk1, (uint8_t*)data + BLK_SIZE - last_blk_sz, sz - (BLK_SIZE - last_blk_sz));
+        writeblk(blk0_num, blk0);
+        writeblk(blk1_num, blk1);
+    }
+    return true;
+}
+
+bool picofs::append(int fd, std::string str)
+{
+    void* data = (void*)str.c_str();
+    size_t sz = str.size();
+    return append(fd, data, sz);
+}
+
+ssize_t picofs::read(int fd, void *buf, size_t count, size_t offset)
+{
+    if(buf == NULL)
+        return 0;
+    descr_t* dfd = &descs.inst[fd];
+    size_t buf_offset = 0;
+    for(size_t i=offset; i < count && i < dfd->sz; ) {
+        // block num
+        int blk_num = i / BLK_SIZE;
+        // read block
+        void* blk = readblk(dfd->blks[blk_num]);
+        if(blk == NULL) {
+            p("error reading file blk");
+            return buf_offset;
+        }
+        // offset inside blk
+        size_t blk_offset = i - blk_num * BLK_SIZE;
+        size_t read_amount = (count < BLK_SIZE - blk_offset)?count:(BLK_SIZE - blk_offset);
+        memcpy((uint8_t*)buf+buf_offset, (uint8_t*)blk+blk_offset, read_amount);
+        buf_offset += read_amount;
+        i += read_amount;
+    }
+    return buf_offset;
 }

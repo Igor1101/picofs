@@ -57,17 +57,23 @@ private:
     // return -1 if something wrong with it
     int verify_magic();
     // return desc if success
-    // return NULL if not found empty
-    descr_t* get_empty_desc();
+    // return < 0 if not found empty
+    int get_empty_desc();
     bool exists = false;
     bool mounted = false;
-    descr_t* current_dir;
+    int fd_current_dir;
     std::string current_dir_name;
     bool *blk_busy = NULL;
     int blk_amount;
     void blk_busy_refresh();
     int get_empty_blk();
+    // dir funcs
+    bool dir_add_file(int dir, std::string fname, int fd);
 public:
+    bool append(int fd, void*data, size_t sz);
+    bool append(int fd, std::string str);
+    ssize_t read(int fd, void *buf, size_t count, size_t offset);
+    void ls();
     std::string get_current_dir()
     {
         return current_dir_name;
