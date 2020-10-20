@@ -293,17 +293,21 @@ void picofs::blk_busy_refresh()
     }
 }
 
-    int blk = desc{
-inst[des].blks[blki];
-            if(blk>blk_amount) {
-                p("in file     f_link_t flink;
+bool picofs::ls()
+{
+    if(!is_mounted()) {
+        p("fs is not mounted");
+        return false;
+    }
+    f_link_t flink;
     // open current dir
     descr_t* dfd = &descs.inst[fd_current_dir];
     for(int i=0; i<dfd->sz; i+=sizeof(f_link_t)) {
         read(fd_current_dir, &flink, sizeof flink, i);
         p("%d %s", flink.desc_num, flink.name);
     }
-is not mounted");}
+    return true;
+}
 
 bool picofs::dir_add_file(int dir, std::string fname, int fd)
 {
@@ -321,12 +325,16 @@ bool picofs::dir_add_file(int dir, std::string fname, int fd)
     return false;
 }
 
-;
-    strncpy(link.name, fname.c_str(), NAME_SZ);
-    // here append flink to bool picofs::append(int fd, void*data, size_t sz)
+/* this is restricted append, can only append data
+ *  with size <= BLK_SIZE
+*/
+bool picofs::append(int fd, void*data, size_t sz)
 {
-  assert (ddir->type == ftype_dir );
-    bool res = append(dir, &link, sizeof link)    if(sz > BLK_SIZE) {
+    if(!is_mounted()) {
+        p("fs is not mounted");
+        return false;
+    }
+    if(sz > BLK_SIZE) {
         p("cant write more than  1 blk");
         return false;
     }
@@ -377,21 +385,22 @@ bool picofs::dir_add_file(int dir, std::string fname, int fd)
 
 bool picofs::append(int fd, std::string str)
 {
-1 = readblk(dfd->blks[blk1_num]);
-        memcpy((uint8_t*)blk0+last_blk_sz,  data,    void* data = (void*)str.c_str();
+    if(!is_mounted()) {
+        p("fs is not mounted");
+        return false;
+    }
+    void* data = (void*)str.c_str();
     size_t sz = str.size();
     return append(fd, data, sz);
 }
 
 ssize_t picofs::read(int fd, void *buf, size_t count, size_t offset)
 {
-k0);
-        writeblk(dfd->blks[blk1_num], blk1);
+    if(!is_mounted()) {
+        p("fs is not mounted");
+        return false;
     }
-    return true;
-}
-
-bo    if(buf == NULL)
+    if(buf == NULL)
         return 0;
     descr_t* dfd = &descs.inst[fd];
     size_t buf_offset = 0;
@@ -413,8 +422,11 @@ bo    if(buf == NULL)
     }
     return buf_offset;
 }
-rror reading file blk");
-            return buf_offset;
-        }
-        // offset inside blk
-        size_t blk_offset =
+
+int picofs::open(std::string fname)
+{
+     if(!is_mounted()) {
+        p("fs is not mounted");
+        return false;
+    }
+}

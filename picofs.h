@@ -61,8 +61,12 @@ private:
     int get_empty_desc();
     bool exists = false;
     bool mounted = false;
+    // current tasks
     int fd_current_dir;
+    int fd_current_file;
     std::string current_dir_name;
+    bool file_open = false;
+
     bool *blk_busy = NULL;
     int blk_amount;
     void blk_busy_refresh();
@@ -73,7 +77,7 @@ public:
     bool append(int fd, void*data, size_t sz);
     bool append(int fd, std::string str);
     ssize_t read(int fd, void *buf, size_t count, size_t offset);
-    void ls();
+    bool ls();
     std::string get_current_dir()
     {
         return current_dir_name;
@@ -90,9 +94,9 @@ public:
     bool umount();
     bool format();
     bool create(std::string fname);
-    bool mount();
-    bool umount();
-    bool format();    bool start_is_correct();
+    // return descriptor
+    int open(std::string fname);
+    bool start_is_correct();
     picofs();
     ~picofs();
 };
