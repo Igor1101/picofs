@@ -90,7 +90,9 @@ public:
     bool umount();
     bool format();
     bool create(std::string fname);
-    bool start_is_correct();
+    bool mount();
+    bool umount();
+    bool format();    bool start_is_correct();
     picofs();
     ~picofs();
 };
