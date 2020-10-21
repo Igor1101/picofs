@@ -74,5 +74,11 @@ void picofs_cli::run_cmd(std::string cmd, std::vector <std::string>args)
         for(size_t i=0; i<=dfd.sz; i+=BLK_SIZE) {
             p("blk%d=%d", i/BLK_SIZE, dfd.blks[i/BLK_SIZE]);
         }
+    } else if(cmd == "unlink") {
+        if(!fs->unlink(args.operator[](0))) {
+            p("unlink unsuccessfull");
+        } else {
+            p("unlink success");
+        }
     }
 }

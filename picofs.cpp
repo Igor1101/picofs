@@ -316,10 +316,12 @@ int picofs::fd_get(int dir, std::string fname)
     descr_t* dfd = &descs.inst[dir];
     for(int i=0; i<dfd->sz; i+=sizeof(f_link_t)) {
         read(dir, &flink, sizeof flink, i);
-        if(!strncpy(flink.name, fname.c_str(), NAME_SZ)) {
+        if(!strncmp(flink.name, fname.c_str(), NAME_SZ)) {
+            p("found file<%s>", fname.c_str());
             return flink.desc_num;
         }
     }
+    p("not found <%s>", fname.c_str());
     return -1;
 }
 
@@ -334,6 +336,33 @@ bool picofs::dir_add_file(int dir, std::string fname, int fd)
     bool res = append(dir, &link, sizeof link);
     if(res) {
         descs.inst[fd].links_amount++;
+        return true;
+    }
+    return false;
+}
+
+bool picofs::dir_rem_file(int dir, std::string fname, int fd)
+{
+    f_link_t flink;
+    descr_t* dfd = &descs.inst[dir];
+    int offset = 0;
+    bool found = false;
+    for(int i=0; i<dfd->sz; i+=sizeof(f_link_t)) {
+        read(dir, &flink, sizeof flink, i);
+        if(!strncmp(flink.name, fname.c_str(), NAME_SZ)) {
+            // here it is
+            found = true;
+            offset = i;
+        }
+    }
+    size_t sz_move = dfd->sz - offset - sizeof(f_link_t);
+    if(found) {
+        // here read sz_move part of dir from offset to end
+        uint8_t* hpart = new uint8_t[sz_move+1] ();
+        read(dir, hpart, sz_move, offset+sizeof(f_link_t));
+        write(dir, hpart, offset, sz_move);
+        // truncate dir file
+        dfd->sz -= sizeof(f_link_t);
         return true;
     }
     return false;
@@ -523,4 +552,15 @@ int picofs::fd_get(std::string fname)
 descr_t picofs::descr_fget(int fd)
 {
     return descs.inst[fd];
+}
+
+bool picofs::unlink(std::string fname)
+{
+    // find this file in cur dir
+    int fd = fd_get(fname);
+    if(fd < 0) {
+        p("file <%s> not found", fname.c_str());
+        return false;
+    }
+    return dir_rem_file(fd_current_dir, fname, fd);
 }

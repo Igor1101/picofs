@@ -82,6 +82,7 @@ private:
     int get_empty_blk();
     // dir funcs
     bool dir_add_file(int dir, std::string fname, int fd);
+    bool dir_rem_file(int dir, std::string fname, int fd);
     int fd_get(int dir, std::string fname);
 public:
     descr_t descr_fget(int fd);
@@ -89,6 +90,7 @@ public:
     bool append_blk(int fd, void*data, size_t sz);
     bool append(int fd, void*data, size_t sz);
     size_t write(int fd, void*data, size_t offset, size_t sz);
+    bool unlink(std::string fname);
     bool append(int fd, std::string str);
     ssize_t read(int fd, void *buf, size_t count, size_t offset);
     bool ls();
