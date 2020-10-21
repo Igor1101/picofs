@@ -224,16 +224,27 @@ bool picofs::create(std::string fname)
         p("no empty descs found");
         return false;
     }
-    int blk0 = get_empty_blk();
-    if(blk0 < 0) {
-        p("no free blk");
+    return create(fd, fname, true);
+}
+
+bool picofs::create(int fd, std::string fname, bool newfd)
+{
+    if(!is_mounted()) {
+        p("fs is not mounted");
         return false;
     }
     // now create fd
-    descs.inst[fd].blks[0] = blk0;
-    descs.inst[fd].links_amount = 0;
-    descs.inst[fd].sz = 0;
-    descs.inst[fd].type = ftype_hlink;
+    if(newfd) {
+        int blk0 = get_empty_blk();
+        if(blk0 < 0) {
+            p("no free blk");
+            return false;
+        }
+        descs.inst[fd].blks[0] = blk0;
+        descs.inst[fd].links_amount = 0;
+        descs.inst[fd].sz = 0;
+        descs.inst[fd].type = ftype_hlink;
+    }
     // its name in current directory
     assert(fd_current_dir >= 0);
     // append to dir
@@ -363,6 +374,8 @@ bool picofs::dir_rem_file(int dir, std::string fname, int fd)
         write(dir, hpart, offset, sz_move);
         // truncate dir file
         dfd->sz -= sizeof(f_link_t);
+        // now remove 1 link
+        descs.inst[fd].links_amount--;
         return true;
     }
     return false;
@@ -556,6 +569,10 @@ descr_t picofs::descr_fget(int fd)
 
 bool picofs::unlink(std::string fname)
 {
+    if(!is_mounted()) {
+        p("fs is not mounted");
+        return false;
+    }
     // find this file in cur dir
     int fd = fd_get(fname);
     if(fd < 0) {
@@ -563,4 +580,23 @@ bool picofs::unlink(std::string fname)
         return false;
     }
     return dir_rem_file(fd_current_dir, fname, fd);
+}
+
+bool picofs::link(std::string fname_old, std::string fname_new)
+{
+    if(!is_mounted()) {
+        p("fs is not mounted");
+        return false;
+    }
+    // find file in cur dir
+    int fd = fd_get(fname_old);
+    if(fd < 0) {
+        p("file <%s> not found", fname_old.c_str());
+        return false;
+    }
+    if(create(fd, fname_new, false)) {
+        descs.inst[fd].links_amount++;
+        return true;
+    }
+    return false;
 }

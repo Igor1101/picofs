@@ -84,6 +84,7 @@ private:
     bool dir_add_file(int dir, std::string fname, int fd);
     bool dir_rem_file(int dir, std::string fname, int fd);
     int fd_get(int dir, std::string fname);
+    bool create(int fd, std::string fname, bool newfd);
 public:
     descr_t descr_fget(int fd);
     int fd_get(std::string fname);
@@ -91,6 +92,7 @@ public:
     bool append(int fd, void*data, size_t sz);
     size_t write(int fd, void*data, size_t offset, size_t sz);
     bool unlink(std::string fname);
+    bool link(std::string fname_old, std::string fname_new);
     bool append(int fd, std::string str);
     ssize_t read(int fd, void *buf, size_t count, size_t offset);
     bool ls();

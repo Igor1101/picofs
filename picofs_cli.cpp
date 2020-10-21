@@ -80,5 +80,13 @@ void picofs_cli::run_cmd(std::string cmd, std::vector <std::string>args)
         } else {
             p("unlink success");
         }
+    } else if(cmd == "link") {
+        string filename_old = args.operator[](0);
+        string filename_new = args.operator[](1);
+        if(!fs->link(filename_old, filename_new)) {
+            p("unsuccessfull link");
+        } else {
+            p("linked successfully");
+        }
     }
 }
