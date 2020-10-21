@@ -436,21 +436,19 @@ size_t picofs::write(int fd, void*data, size_t offset, size_t sz)
         } else {
             fill_blk_sz = (sz_till_end > sz_till_fsz)?sz_till_fsz:sz_till_end;
         }
-        if(cur_data + fill_blk_sz > fsz) {
-            fill_blk_sz = fsz - cur_data;
-        }
+        pd("fill_blk_sz=%zu", fill_blk_sz);
         void*blk = readblk(blk_p_cur);
         if(blk == NULL) {
             p("cant write because cant read blk%zu",blk_p_cur);
             return 0;
         }
-        memcpy((uint8_t*)blk+blk_offset, (uint8_t*)data+cur_data, fill_blk_sz);
+        memcpy((uint8_t*)blk+blk_offset, (uint8_t*)data+(cur_data - offset), fill_blk_sz);
         writeblk(blk_p_cur, blk);
         cur_data += fill_blk_sz;
     }
     // written part that is not appended but substituted, + appended up to end of block
     // now append
-    if(cur_data <= fsz) {
+    if(cur_data - offset >= sz) {
         return sz;
     }
     size_t app_sz = sz - (cur_data-offset);

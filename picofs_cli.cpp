@@ -19,6 +19,9 @@ void picofs_cli::parse()
 {
     istringstream iss (cmd_line);
     vector <string> results(istream_iterator<string>{iss}, istream_iterator <string>());
+    if(results.empty()) {
+        return;
+    }
     // now have split to vectors
     // get command
     string cmd = results.operator[](0);
@@ -51,7 +54,7 @@ void picofs_cli::run_cmd(std::string cmd, std::vector <std::string>args)
         int fd = strtol(args.operator[](0).c_str(), NULL, 10);
         size_t offs = strtol(args.operator[](1).c_str(), NULL, 10);
         size_t sz = strtol(args.operator[](2).c_str(), NULL, 10);
-        char*buf = new  char[sz];
+        char*buf = new  char[sz+2]();
         fs->read(fd, buf, sz, offs);
         p("%s", buf);
         delete []buf;
