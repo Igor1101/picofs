@@ -4,11 +4,16 @@
 #include <cstdio>
 #include <string>
 #ifndef _SSIZE_T_DEFINED
+#ifdef _WIN32
 #ifdef  _WIN64
 typedef unsigned __int64    ssize_t;
+#else
+typedef _W64 unsigned int   ssize_t;
 #endif
 #define _SSIZE_T_DEFINED
 #endif
+#endif
+
 #define p(...)    do { printf(__VA_ARGS__); puts("");  }while(0)
 #define pd(...)    do { printf(__VA_ARGS__); puts("");  }while(0)
 #define STR(s) XSTR(s)
@@ -69,9 +74,7 @@ private:
     bool mounted = false;
     // current tasks
     int fd_current_dir;
-    int fd_current_file;
     std::string current_dir_name;
-    bool file_open = false;
 
     bool *blk_busy = NULL;
     int blk_amount;
@@ -79,8 +82,13 @@ private:
     int get_empty_blk();
     // dir funcs
     bool dir_add_file(int dir, std::string fname, int fd);
+    int fd_get(int dir, std::string fname);
 public:
+    descr_t descr_fget(int fd);
+    int fd_get(std::string fname);
+    bool append_blk(int fd, void*data, size_t sz);
     bool append(int fd, void*data, size_t sz);
+    size_t write(int fd, void*data, size_t offset, size_t sz);
     bool append(int fd, std::string str);
     ssize_t read(int fd, void *buf, size_t count, size_t offset);
     bool ls();

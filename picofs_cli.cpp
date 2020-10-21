@@ -46,5 +46,30 @@ void picofs_cli::run_cmd(std::string cmd, std::vector <std::string>args)
         exit(0);
     } else if(cmd == "ls") {
         fs->ls();
+    } else if(cmd == "read") {
+        // read fd offs size
+        int fd = strtol(args.operator[](0).c_str(), NULL, 10);
+        size_t offs = strtol(args.operator[](1).c_str(), NULL, 10);
+        size_t sz = strtol(args.operator[](2).c_str(), NULL, 10);
+        char*buf = new  char[sz];
+        fs->read(fd, buf, sz, offs);
+        p("%s", buf);
+        delete []buf;
+    } else if(cmd == "write") {
+        // write fd offs size [string]
+        int fd = strtol(args.operator[](0).c_str(), NULL, 10);
+        size_t offs = strtol(args.operator[](1).c_str(), NULL, 10);
+        size_t sz = strtol(args.operator[](2).c_str(), NULL, 10);
+        string data = args.operator[](3);
+        size_t res = fs->write(fd, (void*)data.c_str(), offs,  sz);
+        p("written %zu", res);
+    } else if(cmd == "filestat") {
+        int fd = strtol(args.operator[](0).c_str(), NULL, 10);
+        descr_t dfd = fs->descr_fget(fd);
+        p("fd %d links %d sz %zu", fd, dfd.links_amount, dfd.sz);
+        p("blks:");
+        for(size_t i=0; i<=dfd.sz; i+=BLK_SIZE) {
+            p("blk%d=%d", i/BLK_SIZE, dfd.blks[i/BLK_SIZE]);
+        }
     }
 }

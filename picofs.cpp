@@ -281,13 +281,14 @@ void picofs::blk_busy_refresh()
         if(descs.inst[des].links_amount == 0) {
             continue;
         }
-        for(int blki=0; (blki<MX_BLOCKS_PER_FILE) && (blki*BLK_SIZE<descs.inst[des].sz); blki++) {
+        for(int blki=0; (blki<MX_BLOCKS_PER_FILE) && (blki*BLK_SIZE<=descs.inst[des].sz); blki++) {
             int blk = descs.inst[des].blks[blki];
             if(blk>blk_amount) {
                 p("in file descriptor invalid blk file=%d, blk=%u", des, blk);
             }
-            if(blki < blks_for_dsks)
+            if(blk < blks_for_dsks)
                 continue;
+            pd("blk%d busy", blk);
             blk_busy[blk] = true;
         }
     }
@@ -309,6 +310,19 @@ bool picofs::ls()
     return true;
 }
 
+int picofs::fd_get(int dir, std::string fname)
+{
+    f_link_t flink;
+    descr_t* dfd = &descs.inst[dir];
+    for(int i=0; i<dfd->sz; i+=sizeof(f_link_t)) {
+        read(dir, &flink, sizeof flink, i);
+        if(!strncpy(flink.name, fname.c_str(), NAME_SZ)) {
+            return flink.desc_num;
+        }
+    }
+    return -1;
+}
+
 bool picofs::dir_add_file(int dir, std::string fname, int fd)
 {
     f_link_t link;
@@ -325,10 +339,22 @@ bool picofs::dir_add_file(int dir, std::string fname, int fd)
     return false;
 }
 
+bool picofs::append(int fd, void *data, size_t sz)
+{
+    // split data by BLK_SIZE blocks
+    for(size_t i=0; i<sz; i += BLK_SIZE) {
+        size_t left = sz - i;
+        size_t sz_write = (left > BLK_SIZE)?BLK_SIZE:left;
+        if(!append_blk(fd, (uint8_t*)data+i, sz_write)) {
+            return false;
+        }
+    }
+    return true;
+}
 /* this is restricted append, can only append data
  *  with size <= BLK_SIZE
 */
-bool picofs::append(int fd, void*data, size_t sz)
+bool picofs::append_blk(int fd, void*data, size_t sz)
 {
     if(!is_mounted()) {
         p("fs is not mounted");
@@ -383,6 +409,55 @@ bool picofs::append(int fd, void*data, size_t sz)
     return true;
 }
 
+size_t picofs::write(int fd, void*data, size_t offset, size_t sz)
+{
+    if(!is_mounted()) {
+        p("fs is not mounted");
+        return 0;
+    }
+    if(fd < 0)
+        return 0;
+    descr_t* dfd = &descs.inst[fd];
+    // file current size
+    size_t fsz = dfd->sz;
+    // cur data
+    size_t cur_data = offset;
+    for(; cur_data < fsz && (cur_data - offset) < sz; ) {
+        size_t blk_num_cur = cur_data / BLK_SIZE;
+        size_t blk_p_cur = dfd->blks[blk_num_cur];
+        size_t blk_offset = cur_data - blk_num_cur * BLK_SIZE;
+        // till the end of requested size:
+        size_t sz_till_end = sz - (cur_data - offset);
+        // till the end of file:
+        size_t sz_till_fsz = fsz - cur_data;
+        size_t fill_blk_sz;
+        if(sz_till_end > BLK_SIZE) {
+            fill_blk_sz = BLK_SIZE;
+        } else {
+            fill_blk_sz = (sz_till_end > sz_till_fsz)?sz_till_fsz:sz_till_end;
+        }
+        if(cur_data + fill_blk_sz > fsz) {
+            fill_blk_sz = fsz - cur_data;
+        }
+        void*blk = readblk(blk_p_cur);
+        if(blk == NULL) {
+            p("cant write because cant read blk%zu",blk_p_cur);
+            return 0;
+        }
+        memcpy((uint8_t*)blk+blk_offset, (uint8_t*)data+cur_data, fill_blk_sz);
+        writeblk(blk_p_cur, blk);
+        cur_data += fill_blk_sz;
+    }
+    // written part that is not appended but substituted, + appended up to end of block
+    // now append
+    if(cur_data <= fsz) {
+        return sz;
+    }
+    size_t app_sz = sz - (cur_data-offset);
+    if(append(fd, (uint8_t*)data+cur_data, app_sz))
+        return sz;
+    return app_sz;
+}
 bool picofs::append(int fd, std::string str)
 {
     if(!is_mounted()) {
@@ -425,8 +500,29 @@ ssize_t picofs::read(int fd, void *buf, size_t count, size_t offset)
 
 int picofs::open(std::string fname)
 {
-     if(!is_mounted()) {
+    if(!is_mounted()) {
         p("fs is not mounted");
-        return false;
+        return -1;
     }
+    // find in fs
+    int fd = fd_get(fname);
+    if(fd < 0) {
+        // cant find such file
+        return -1;
+    }
+    return fd;
+}
+
+int picofs::fd_get(std::string fname)
+{
+    if(!is_mounted()) {
+        p("fs is not mounted");
+        return -1;
+    }
+    return fd_get(fd_current_dir, fname);
+}
+
+descr_t picofs::descr_fget(int fd)
+{
+    return descs.inst[fd];
 }
