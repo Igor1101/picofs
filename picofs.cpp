@@ -600,3 +600,30 @@ bool picofs::link(std::string fname_old, std::string fname_new)
     }
     return false;
 }
+
+bool picofs::truncate(std::string fname, size_t sz)
+{
+    if(!is_mounted()) {
+        p("fs is not mounted");
+        return false;
+    }
+    // find this file
+    int fd = fd_get(fname);
+    if(fd < 0) {
+        p("file <%s> not found", fname.c_str());
+        return false;
+    }
+    // get size
+    size_t old_sz = descs.inst[fd].sz;
+    if(old_sz > sz) {
+        // just reconfigure size
+        descs.inst[fd].sz = sz;
+        // update info about file
+        blk_busy_refresh();
+        return true;
+    }
+    // new sz is bigger
+    size_t diff = sz - old_sz;
+    uint8_t *zero= new uint8_t[diff] ();
+    return append(fd, zero, diff);
+}

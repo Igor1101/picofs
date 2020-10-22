@@ -96,6 +96,7 @@ public:
     bool append(int fd, std::string str);
     ssize_t read(int fd, void *buf, size_t count, size_t offset);
     bool ls();
+    bool truncate(std::string fname, size_t sz);
     std::string get_current_dir()
     {
         return current_dir_name;

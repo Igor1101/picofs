@@ -88,5 +88,13 @@ void picofs_cli::run_cmd(std::string cmd, std::vector <std::string>args)
         } else {
             p("linked successfully");
         }
+    } else if(cmd == "truncate") {
+        string fname = args.operator[](0);
+        size_t sz = strtol(args.operator[](1).c_str(), NULL, 10);
+        if(fs->truncate(fname, sz)) {
+            p("successfully truncated");
+        } else {
+            p("truncate unsuccessfull");
+        }
     }
 }
