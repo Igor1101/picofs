@@ -11,7 +11,7 @@ using namespace std;
 void picofs_cli::newline()
 {
     cmd_line.erase();
-    cout << endl << fs->get_current_dir() << "=> " ;
+    cout << endl << fs->current_path() << "=> " ;
     getline(cin, cmd_line);
 }
 
@@ -102,6 +102,11 @@ void picofs_cli::run_cmd(std::string cmd, std::vector <std::string>args)
             p("created");
         } else {
             p("not created");
+        }
+    } else if(cmd == "cd") {
+        string fname = args.operator[](0);
+        if(!fs->cd(fname)) {
+            p("cant cd");
         }
     } else {
         p("not found cmd");

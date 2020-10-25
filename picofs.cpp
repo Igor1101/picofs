@@ -341,7 +341,7 @@ int picofs::fd_get(int dir, std::string fname)
     descr_t* dfd = &descs.inst[dir];
     for(int i=0; i<dfd->sz; i+=sizeof(f_link_t)) {
         read(dir, &flink, sizeof flink, i);
-        if(!strncmp(flink.name, fname.c_str(), NAME_SZ)) {
+        if(flink.desc_num >= 0 && descs.inst[flink.desc_num].links_amount > 0 && !strncmp(flink.name, fname.c_str(), NAME_SZ)) {
             p("found file<%s>", fname.c_str());
             return flink.desc_num;
         }
@@ -349,6 +349,21 @@ int picofs::fd_get(int dir, std::string fname)
     p("not found <%s>", fname.c_str());
     return -1;
 }
+
+std::string picofs::name_get(int dir, int fd)
+{
+    f_link_t flink;
+    descr_t* dfd = &descs.inst[dir];
+    for(int i=0; i<dfd->sz; i+=sizeof(f_link_t)) {
+        read(dir, &flink, sizeof flink, i);
+        if(flink.desc_num >= 0 && descs.inst[flink.desc_num].links_amount > 0 && (fd == flink.desc_num)) {
+            return string(flink.name);
+        }
+    }
+    p("not found <%d>", fd);
+    return string();
+}
+
 
 bool picofs::dir_add_file(int dir, std::string fname, int fd)
 {
@@ -666,10 +681,6 @@ bool picofs::init_dir(int fd, int parent)
         p("not mounted");
         return false;
     }
-    if(!init_dir(fd)) {
-        p("init_dir fd failed");
-        return false;
-    }
     f_link_t parent_dir;
     parent_dir.desc_num = parent;
     strcpy(parent_dir.name, "..");
@@ -677,5 +688,68 @@ bool picofs::init_dir(int fd, int parent)
         p("cant append init_dir parent");
         return false;
     }
+    if(!init_dir(fd)) {
+        p("init_dir fd failed");
+        return false;
+    }
     return true;
+}
+
+bool picofs::cd(int fd)
+{
+    if(!is_mounted()) {
+        p("not mounted");
+        return false;
+    }
+    if(descs.inst[fd].type == ftype_dir && descs.inst[fd].links_amount > 0) {
+        fd_current_dir = fd;
+        return true;
+    }
+    p("dir not found %d", fd);
+    return false;
+}
+
+bool picofs::cd(int dir_containing, std::string dname)
+{
+    if(!is_mounted()) {
+        p("not mounted");
+        return false;
+    }
+    int fd = fd_get(dir_containing, dname);
+    if(fd < 0) {
+        return false;
+        p("dir not found");
+    }
+    if(cd(fd)) {
+        return true;
+    }
+    p("could not cd");
+    return false;
+}
+
+bool picofs::cd(std::string path)
+{
+    return cd(fd_current_dir, path);
+}
+
+std::string picofs::current_path()
+{
+    if(!is_mounted()) {
+        p("not mounted");
+        return "<not mounted>";
+    }
+    string path = string();
+    int dir = fd_current_dir;
+    for(;;) {
+        // get prev dir if not found then finish
+        int fd = fd_get(dir, "..");
+        if(fd < 0) {
+            return magic+"\\" + path;
+        }
+        // find there current dir name
+        string curname = name_get(fd, dir);
+        path = curname + "\\" + path;
+        dir = fd;
+    }
+    return path;
 }
