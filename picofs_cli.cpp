@@ -42,7 +42,7 @@ void picofs_cli::run_cmd(std::string cmd, std::vector <std::string>args)
     } else if(cmd == "format") {
         fs->format();
     } else if(cmd == "create") {
-        fs->create(args.operator[](0));
+        fs->create(args.operator[](0), ftype_reg);
     } else if(cmd == "exit") {
         if(!fs->is_mounted())
             fs->umount();
@@ -96,5 +96,14 @@ void picofs_cli::run_cmd(std::string cmd, std::vector <std::string>args)
         } else {
             p("truncate unsuccessfull");
         }
+    } else if(cmd == "mkdir") {
+        string fname = args.operator[](0);
+        if(fs->create(fname, ftype_dir)){
+            p("created");
+        } else {
+            p("not created");
+        }
+    } else {
+        p("not found cmd");
     }
 }

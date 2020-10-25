@@ -207,11 +207,20 @@ bool picofs::format()
     descs.inst[0].type = ftype_dir;
     // write from the 1st blks
     writeblks(0, &descs, sizeof descs);
+    // here mount temporarily to reconfigure root dir
+    if(!mount()) {
+        p("cant mount");
+        return false;
+    }
+    // init root
+    init_dir(0);
+    // and umount
+    umount();
     return true;
 }
 
 
-bool picofs::create(std::string fname)
+bool picofs::create(std::string fname, ftype_t type)
 {
     if(!is_mounted()) {
         p("fs is not mounted");
@@ -224,10 +233,10 @@ bool picofs::create(std::string fname)
         p("no empty descs found");
         return false;
     }
-    return create(fd, fname, true);
+    return create(fd, fname, true, type);
 }
 
-bool picofs::create(int fd, std::string fname, bool newfd)
+bool picofs::create(int fd, std::string fname, bool newfd, ftype_t type)
 {
     if(!is_mounted()) {
         p("fs is not mounted");
@@ -243,12 +252,17 @@ bool picofs::create(int fd, std::string fname, bool newfd)
         descs.inst[fd].blks[0] = blk0;
         descs.inst[fd].links_amount = 0;
         descs.inst[fd].sz = 0;
-        descs.inst[fd].type = ftype_hlink;
+        descs.inst[fd].type = type;
     }
     // its name in current directory
     assert(fd_current_dir >= 0);
     // append to dir
     dir_add_file(fd_current_dir, fname, fd);
+    // any additinal things:
+    // if dir init dir
+    if(!init_dir(fd, fd_current_dir)) {
+        p("could not init dir");
+    }
     return true;
 }
 
@@ -590,11 +604,13 @@ bool picofs::link(std::string fname_old, std::string fname_new)
     }
     // find file in cur dir
     int fd = fd_get(fname_old);
+    // findout type of file
+    ftype_t type = descs.inst[fd].type;
     if(fd < 0) {
         p("file <%s> not found", fname_old.c_str());
         return false;
     }
-    if(create(fd, fname_new, false)) {
+    if(create(fd, fname_new, false, type)) {
         descs.inst[fd].links_amount++;
         return true;
     }
@@ -626,4 +642,40 @@ bool picofs::truncate(std::string fname, size_t sz)
     size_t diff = sz - old_sz;
     uint8_t *zero= new uint8_t[diff] ();
     return append(fd, zero, diff);
+}
+
+bool picofs::init_dir(int fd)
+{
+    if(!is_mounted()) {
+        p("not mounted");
+        return false;
+    }
+    f_link_t cur_link;
+    cur_link.desc_num = fd;
+    strcpy(cur_link.name, ".");
+    if(!append(fd, &cur_link, sizeof cur_link)) {
+        p("cant append init_dir");
+        return false;
+    }
+    return true;
+}
+
+bool picofs::init_dir(int fd, int parent)
+{
+    if(!is_mounted()) {
+        p("not mounted");
+        return false;
+    }
+    if(!init_dir(fd)) {
+        p("init_dir fd failed");
+        return false;
+    }
+    f_link_t parent_dir;
+    parent_dir.desc_num = parent;
+    strcpy(parent_dir.name, "..");
+    if(!append(fd, &parent_dir, sizeof parent_dir)) {
+        p("cant append init_dir parent");
+        return false;
+    }
+    return true;
 }

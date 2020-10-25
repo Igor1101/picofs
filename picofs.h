@@ -33,7 +33,7 @@ void writeblks(size_t num, void*data, size_t datasz);
 // platform independent
 enum ftype_t {
     ftype_dir,
-    ftype_hlink,
+    ftype_reg,
     ftype_slink
 };
 
@@ -84,7 +84,9 @@ private:
     bool dir_add_file(int dir, std::string fname, int fd);
     bool dir_rem_file(int dir, std::string fname, int fd);
     int fd_get(int dir, std::string fname);
-    bool create(int fd, std::string fname, bool newfd);
+    bool create(int fd, std::string fname, bool newfd, ftype_t type);
+    bool init_dir(int fd);
+    bool init_dir(int fd, int parent);
 public:
     descr_t descr_fget(int fd);
     int fd_get(std::string fname);
@@ -112,7 +114,7 @@ public:
     bool mount();
     bool umount();
     bool format();
-    bool create(std::string fname);
+    bool create(std::string fname, ftype_t type);
     // return descriptor
     int open(std::string fname);
     bool start_is_correct();
