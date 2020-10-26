@@ -2,6 +2,10 @@
 #include <cstdint>
 #include <cstring>
 #include <cassert>
+#include <vector>
+#include <string>
+#include <sstream>
+#include <iostream>
 #include "picofs.h"
 
 using namespace std;
@@ -727,9 +731,34 @@ bool picofs::cd(int dir_containing, std::string dname)
     return false;
 }
 
+std::vector<std::string> split(const std::string& s, char delimiter)
+{
+   std::vector<std::string> tokens;
+   std::string token;
+   std::istringstream tokenStream(s);
+   if(s.at(0) == delimiter) {
+       tokens.insert(tokens.begin(), string(1,delimiter));
+   }
+   while (std::getline(tokenStream, token, delimiter))
+   {
+       tokens.insert(tokens.begin(), token);
+   }
+   return tokens;
+}
+
 bool picofs::cd(std::string path)
 {
-    return cd(fd_current_dir, path);
+    // split str by delimiters
+    vector<string> tokens = split(path, delimiter.at(0));
+    // now cd
+    for(;!tokens.empty();) {
+        p("cd <%s>", tokens.back().c_str());
+        if(!cd(fd_current_dir, tokens.back())) {
+            p("error cd at <%s>", tokens.back().c_str());
+        }
+        tokens.pop_back();
+    }
+    return true;
 }
 
 std::string picofs::current_path()
@@ -744,11 +773,11 @@ std::string picofs::current_path()
         // get prev dir if not found then finish
         int fd = fd_get(dir, "..");
         if(fd < 0) {
-            return magic+"\\" + path;
+            return magic+ delimiter + path;
         }
         // find there current dir name
         string curname = name_get(fd, dir);
-        path = curname + "\\" + path;
+        path = curname + delimiter + path;
         dir = fd;
     }
     return path;

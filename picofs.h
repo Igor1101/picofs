@@ -91,6 +91,7 @@ private:
     bool cd(int fd);
     bool cd(int dir_containing, std::string dname);
 public:
+    std::string delimiter = "\\";
     std::string current_path();
     bool cd(std::string path);
     descr_t descr_fget(int fd);
