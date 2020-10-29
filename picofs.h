@@ -90,7 +90,11 @@ private:
     bool init_dir(int fd, int parent);
     bool cd(int fd);
     bool cd(int dir_containing, std::string dname);
+    bool pseudo_cd(int*cur_dir, int fd);
+    bool pseudo_cd(int*cur_dir, std::string dname);
 public:
+    std::string get_path(std::string fname);
+    std::string get_fname(std::string fname);
     std::string delimiter = "\\";
     std::string current_path();
     bool cd(std::string path);

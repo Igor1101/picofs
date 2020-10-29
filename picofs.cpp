@@ -84,6 +84,8 @@ void writeblks(size_t num, void*data, size_t datasz)
 }
 // platform not dependent
 
+static std::vector<std::string> split(const std::string& s, char delimiter);
+
 picofs::picofs()
 {
     pd("opening drive");
@@ -592,7 +594,33 @@ int picofs::fd_get(std::string fname)
         p("fs is not mounted");
         return -1;
     }
-    return fd_get(fd_current_dir, fname);
+    // split str by delimiters
+    vector<string> tokens = split(fname, delimiter.at(0));
+    // now find
+    int cur_dir = fd_current_dir;
+    for(;!tokens.empty();) {
+        p("cd <%s>", tokens.back().c_str());
+        if(!pseudo_cd(&cur_dir, tokens.back())) {
+            p("error cd at <%s>", tokens.back().c_str());
+        }
+        tokens.pop_back();
+    }
+    return fd_get(cur_dir, fname);
+}
+
+std::string picofs::get_fname(std::string fname)
+{
+    // find last occurence of delim
+    size_t occr = fname.find_last_of(delimiter);
+    occr++;
+    return fname.substr(occr);
+}
+
+std::string picofs::get_path(std::string fname)
+{
+    // find last occurence of delim
+    size_t occr = fname.find_last_of(delimiter);
+    return fname.substr(0, occr);
 }
 
 descr_t picofs::descr_fget(int fd)
@@ -699,6 +727,21 @@ bool picofs::init_dir(int fd, int parent)
     return true;
 }
 
+bool picofs::pseudo_cd(int*cur_dir, int fd)
+{
+    assert(cur_dir!=NULL);
+    if(!is_mounted()) {
+        p("not mounted");
+        return false;
+    }
+    if(descs.inst[fd].type == ftype_dir && descs.inst[fd].links_amount > 0) {
+        *cur_dir = fd;
+        return true;
+    }
+    p("dir not found %d", fd);
+    return false;
+
+}
 bool picofs::cd(int fd)
 {
     if(!is_mounted()) {
@@ -713,11 +756,42 @@ bool picofs::cd(int fd)
     return false;
 }
 
+bool picofs::pseudo_cd(int*cur_dir, std::string dname)
+{
+    assert(cur_dir!=NULL);
+    if(!is_mounted()) {
+        p("not mounted");
+        return false;
+    }
+    // if we just need to goto the root
+    if(dname == delimiter) {
+        pd("goto root");
+        *cur_dir = 0;
+        return true;
+    }
+    int fd = fd_get(*cur_dir, dname);
+    if(fd < 0) {
+        return false;
+        p("dir not found");
+    }
+    if(pseudo_cd(cur_dir, fd)) {
+        return true;
+    }
+    p("could not cd");
+    return false;
+}
+
 bool picofs::cd(int dir_containing, std::string dname)
 {
     if(!is_mounted()) {
         p("not mounted");
         return false;
+    }
+    // if we just need to goto the root
+    if(dname == delimiter) {
+        pd("goto root");
+        fd_current_dir = 0;
+        return true;
     }
     int fd = fd_get(dir_containing, dname);
     if(fd < 0) {
@@ -731,7 +805,7 @@ bool picofs::cd(int dir_containing, std::string dname)
     return false;
 }
 
-std::vector<std::string> split(const std::string& s, char delimiter)
+static std::vector<std::string> split(const std::string& s, char delimiter)
 {
    std::vector<std::string> tokens;
    std::string token;
@@ -760,6 +834,8 @@ bool picofs::cd(std::string path)
     }
     return true;
 }
+
+
 
 std::string picofs::current_path()
 {
