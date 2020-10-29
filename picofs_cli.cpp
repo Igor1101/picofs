@@ -69,7 +69,7 @@ void picofs_cli::run_cmd(std::string cmd, std::vector <std::string>args)
     } else if(cmd == "filestat") {
         int fd = strtol(args.operator[](0).c_str(), NULL, 10);
         descr_t dfd = fs->descr_fget(fd);
-        p("fd %d links %d sz %zu", fd, dfd.links_amount, dfd.sz);
+        p("fd %d links %d sz %zu type=%d", fd, dfd.links_amount, dfd.sz, dfd.type);
         p("blks:");
         for(size_t i=0; i<=dfd.sz; i+=BLK_SIZE) {
             p("blk%d=%d", i/BLK_SIZE, dfd.blks[i/BLK_SIZE]);

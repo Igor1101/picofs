@@ -232,17 +232,24 @@ bool picofs::create(std::string fname, ftype_t type)
         p("fs is not mounted");
         return false;
     }
-
+    string path = get_path(fname);
+    string name = get_fname(fname);
+    // get dir
+    int dir = fd_get(path);
+    if(descs.inst[dir].type != ftype_dir) {
+        p("invalid path, the last item is not dir");
+        return false;
+    }
     // find empty space for descriptor
     int fd = get_empty_desc();
     if(fd < 0) {
         p("no empty descs found");
         return false;
     }
-    return create(fd, fname, true, type);
+    return create(dir, fd, name, true, type);
 }
 
-bool picofs::create(int fd, std::string fname, bool newfd, ftype_t type)
+bool picofs::create(int dir, int fd, std::string fname, bool newfd, ftype_t type)
 {
     if(!is_mounted()) {
         p("fs is not mounted");
@@ -261,13 +268,15 @@ bool picofs::create(int fd, std::string fname, bool newfd, ftype_t type)
         descs.inst[fd].type = type;
     }
     // its name in current directory
-    assert(fd_current_dir >= 0);
+    assert(dir >= 0);
     // append to dir
-    dir_add_file(fd_current_dir, fname, fd);
+    dir_add_file(dir, fname, fd);
     // any additinal things:
     // if dir init dir
-    if(!init_dir(fd, fd_current_dir)) {
-        p("could not init dir");
+    if(type == ftype_dir) {
+        if(!init_dir(fd, dir)) {
+            p("could not init dir");
+        }
     }
     return true;
 }
@@ -343,6 +352,10 @@ bool picofs::ls()
 
 int picofs::fd_get(int dir, std::string fname)
 {
+    if(fname == delimiter) {
+        // fname is root dir
+        return 0;
+    }
     f_link_t flink;
     descr_t* dfd = &descs.inst[dir];
     for(int i=0; i<dfd->sz; i+=sizeof(f_link_t)) {
@@ -597,11 +610,17 @@ int picofs::fd_get(std::string fname)
     // split by name
     string name = get_fname(fname);
     string path = get_path(fname);
+    if(name == delimiter)
+        return 0;
     // split str by delimiters
     vector<string> tokens = split(path, delimiter.at(0));
     // now find
     int cur_dir = fd_current_dir;
     for(;!tokens.empty();) {
+        if(tokens.back().size() == 0) {
+            tokens.pop_back();
+            continue;
+        }
         p("pseudo cd <%s>", tokens.back().c_str());
         if(!pseudo_cd(&cur_dir, tokens.back())) {
             p("error pseudo cd at <%s>", tokens.back().c_str());
@@ -614,18 +633,22 @@ int picofs::fd_get(std::string fname)
 
 std::string picofs::get_fname(std::string fname)
 {
+    if(fname == delimiter)
+        return delimiter;
     // find last occurence of delim
     size_t occr = fname.find_last_of(delimiter);
     occr++;
-    return fname.substr(occr);
+    return fname.substr(occr, fname.back());
 }
 
 std::string picofs::get_path(std::string fname)
 {
+    if(fname == delimiter)
+        return delimiter;
     // find last occurence of delim
     size_t occr = fname.find_last_of(delimiter);
     if(occr == string::npos)
-        return "";
+        return ".";
     if(occr == 0)
         return delimiter;
     return fname.substr(0, occr);
@@ -659,14 +682,26 @@ bool picofs::link(std::string fname_old, std::string fname_new)
     }
     // find file in cur dir
     int fd = fd_get(fname_old);
-    // findout type of file
-    ftype_t type = descs.inst[fd].type;
     if(fd < 0) {
         p("file <%s> not found", fname_old.c_str());
         return false;
     }
-    if(create(fd, fname_new, false, type)) {
-        descs.inst[fd].links_amount++;
+    // findout type of file
+    ftype_t type = descs.inst[fd].type;
+    if(type != ftype_reg) {
+        p("invalid file type, only reg file is supported");
+        return false;
+    }
+    // parse fname_new:
+    string path = get_path(fname_new);
+    string name = get_fname(fname_new);
+    // get dir
+    int dir = fd_get(path);
+    if(descs.inst[dir].type != ftype_dir) {
+        p("invalid path, the last item is not dir");
+        return false;
+    }
+    if(create(dir, fd, name, false, type)) {
         return true;
     }
     return false;
@@ -829,7 +864,7 @@ std::string picofs::current_path()
         // get prev dir if not found then finish
         int fd = fd_get(dir, "..");
         if(fd < 0) {
-            return magic+ delimiter + path;
+            return magic + delimiter + path;
         }
         // find there current dir name
         string curname = name_get(fd, dir);

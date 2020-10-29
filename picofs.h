@@ -85,7 +85,7 @@ private:
     bool dir_rem_file(int dir, std::string fname, int fd);
     int fd_get(int dir, std::string fname);
     std::string name_get(int dir, int fd);
-    bool create(int fd, std::string fname, bool newfd, ftype_t type);
+    bool create(int dir, int fd, std::string fname, bool newfd, ftype_t type);
     bool init_dir(int fd);
     bool init_dir(int fd, int parent);
     bool cd(int fd);
