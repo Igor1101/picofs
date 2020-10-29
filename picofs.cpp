@@ -594,8 +594,11 @@ int picofs::fd_get(std::string fname)
         p("fs is not mounted");
         return -1;
     }
+    // split by name
+    string name = get_fname(fname);
+    string path = get_path(fname);
     // split str by delimiters
-    vector<string> tokens = split(fname, delimiter.at(0));
+    vector<string> tokens = split(path, delimiter.at(0));
     // now find
     int cur_dir = fd_current_dir;
     for(;!tokens.empty();) {
@@ -606,7 +609,7 @@ int picofs::fd_get(std::string fname)
         }
         tokens.pop_back();
     }
-    return fd_get(cur_dir, fname);
+    return fd_get(cur_dir, name);
 }
 
 std::string picofs::get_fname(std::string fname)
@@ -621,6 +624,8 @@ std::string picofs::get_path(std::string fname)
 {
     // find last occurence of delim
     size_t occr = fname.find_last_of(delimiter);
+    if(occr == string::npos)
+        return "";
     if(occr == 0)
         return delimiter;
     return fname.substr(0, occr);
@@ -789,6 +794,8 @@ static std::vector<std::string> split(const std::string& s, char delimiter)
    std::vector<std::string> tokens;
    std::string token;
    std::istringstream tokenStream(s);
+   if(s.size() == 0)
+       return tokens;
    if(s.at(0) == delimiter) {
        tokens.insert(tokens.begin(), string(1,delimiter));
    }
