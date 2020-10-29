@@ -599,9 +599,10 @@ int picofs::fd_get(std::string fname)
     // now find
     int cur_dir = fd_current_dir;
     for(;!tokens.empty();) {
-        p("cd <%s>", tokens.back().c_str());
+        p("pseudo cd <%s>", tokens.back().c_str());
         if(!pseudo_cd(&cur_dir, tokens.back())) {
-            p("error cd at <%s>", tokens.back().c_str());
+            p("error pseudo cd at <%s>", tokens.back().c_str());
+            return -1;
         }
         tokens.pop_back();
     }
@@ -620,6 +621,8 @@ std::string picofs::get_path(std::string fname)
 {
     // find last occurence of delim
     size_t occr = fname.find_last_of(delimiter);
+    if(occr == 0)
+        return delimiter;
     return fname.substr(0, occr);
 }
 
@@ -765,43 +768,19 @@ bool picofs::pseudo_cd(int*cur_dir, std::string dname)
     }
     // if we just need to goto the root
     if(dname == delimiter) {
-        pd("goto root");
+        pd("pseudo cd goto root");
         *cur_dir = 0;
         return true;
     }
     int fd = fd_get(*cur_dir, dname);
     if(fd < 0) {
         return false;
-        p("dir not found");
+        p("pseudo_cd dir not found");
     }
     if(pseudo_cd(cur_dir, fd)) {
         return true;
     }
-    p("could not cd");
-    return false;
-}
-
-bool picofs::cd(int dir_containing, std::string dname)
-{
-    if(!is_mounted()) {
-        p("not mounted");
-        return false;
-    }
-    // if we just need to goto the root
-    if(dname == delimiter) {
-        pd("goto root");
-        fd_current_dir = 0;
-        return true;
-    }
-    int fd = fd_get(dir_containing, dname);
-    if(fd < 0) {
-        return false;
-        p("dir not found");
-    }
-    if(cd(fd)) {
-        return true;
-    }
-    p("could not cd");
+    p("could not pseudo cd");
     return false;
 }
 
@@ -822,17 +801,11 @@ static std::vector<std::string> split(const std::string& s, char delimiter)
 
 bool picofs::cd(std::string path)
 {
-    // split str by delimiters
-    vector<string> tokens = split(path, delimiter.at(0));
-    // now cd
-    for(;!tokens.empty();) {
-        p("cd <%s>", tokens.back().c_str());
-        if(!cd(fd_current_dir, tokens.back())) {
-            p("error cd at <%s>", tokens.back().c_str());
-        }
-        tokens.pop_back();
+    int fd_dir = fd_get(path);
+    if(fd_dir < 0) {
+        return false;
     }
-    return true;
+    return cd(fd_dir);
 }
 
 
