@@ -665,13 +665,21 @@ bool picofs::unlink(std::string fname)
         p("fs is not mounted");
         return false;
     }
-    // find this file in cur dir
+    // find this file
     int fd = fd_get(fname);
     if(fd < 0) {
         p("file <%s> not found", fname.c_str());
         return false;
     }
-    return dir_rem_file(fd_current_dir, fname, fd);
+    // its root dir
+    string dir_fname = get_path(fname);
+    string name = get_fname(fname);
+    int dir_fd = fd_get(dir_fname);
+    if(dir_fd < 0) {
+        p("dir <%s> not found", dir_fname.c_str());
+        return false;
+    }
+    return dir_rem_file(dir_fd, name, fd);
 }
 
 bool picofs::link(std::string fname_old, std::string fname_new)
@@ -718,6 +726,10 @@ bool picofs::truncate(std::string fname, size_t sz)
     if(fd < 0) {
         p("file <%s> not found", fname.c_str());
         return false;
+    }
+    // verify if symlink find real file
+    if(descs.inst[fd].type == ftype_slink) {
+        return truncate(symlink_get(fd),sz);
     }
     // get size
     size_t old_sz = descs.inst[fd].sz;
@@ -769,6 +781,22 @@ bool picofs::init_dir(int fd, int parent)
     }
     return true;
 }
+std::string picofs::symlink_get(int fd)
+{
+    if(!is_mounted()) {
+        p("not mounted");
+        return "";
+    }
+    if(fd < 0) {
+        return "";
+    }
+    if(descs.inst[fd].type != ftype_slink) {
+        return "";
+    }
+    char* buf = new char[descs.inst[fd].sz] ();
+    read(fd, buf, descs.inst[fd].sz, 0);
+    return string(buf);
+}
 
 bool picofs::pseudo_cd(int*cur_dir, int fd)
 {
@@ -779,6 +807,12 @@ bool picofs::pseudo_cd(int*cur_dir, int fd)
     }
     if(descs.inst[fd].type == ftype_dir && descs.inst[fd].links_amount > 0) {
         *cur_dir = fd;
+        return true;
+    }
+    // here is a symbolic link,
+    // ok, dont panic, use recursion
+    if(descs.inst[fd].type == ftype_slink && descs.inst[fd].links_amount > 0) {
+        *cur_dir = fd_get(symlink_get(fd));
         return true;
     }
     p("dir not found %d", fd);
@@ -795,6 +829,11 @@ bool picofs::cd(int fd)
         fd_current_dir = fd;
         return true;
     }
+    if(descs.inst[fd].type == ftype_slink && descs.inst[fd].links_amount > 0) {
+        return cd(symlink_get(fd));
+        return true;
+    }
+
     p("dir not found %d", fd);
     return false;
 }
@@ -872,4 +911,51 @@ std::string picofs::current_path()
         dir = fd;
     }
     return path;
+}
+
+bool picofs::symlink(std::string fname, std::string sym_name)
+{
+    if(!is_mounted()) {
+        p("not mounted");
+        return false;
+    }
+    // create sym file
+    if(!create(sym_name, ftype_slink)) {
+        p("cant create file for symlink");
+        return false;
+    }
+    int fd = fd_get(sym_name);
+    if(fd < 0) {
+        p("cant open file as symlink");
+        return false;
+    }
+    write(fd, (void*)fname.c_str(), 0, fname.size());
+    return true;
+}
+
+bool picofs::rmdir(std::string fdir)
+{
+    if(!is_mounted()) {
+        p("not mounted");
+        return false;
+    }
+    int dir = fd_get(fdir);
+    if(dir < 0) {
+        p("path not found");
+        return false;
+    }
+    f_link_t flink;
+    // open current dir
+    descr_t* dfd = &descs.inst[dir];
+    if(dfd->type != ftype_dir) {
+        return false;
+    }
+    for(int i=0; i<dfd->sz; i+=sizeof(f_link_t)) {
+        read(dir, &flink, sizeof flink, i);
+        if(strcmp(flink.name, ".") && strcmp(flink.name, "..")) {
+            p("dir is not empty, found: %d %s", flink.desc_num, flink.name);
+            return false;
+        }
+    }
+    return unlink(fdir);
 }

@@ -93,6 +93,9 @@ private:
     bool pseudo_cd(int*cur_dir, int fd);
     bool pseudo_cd(int*cur_dir, std::string dname);
 public:
+    bool rmdir(std::string fdir);
+    bool symlink(std::string fname, std::string sym_name);
+    std::string symlink_get(int fd);
     std::string get_path(std::string fname);
     std::string get_fname(std::string fname);
     std::string delimiter = "\\";

@@ -108,7 +108,23 @@ void picofs_cli::run_cmd(std::string cmd, std::vector <std::string>args)
         if(!fs->cd(fname)) {
             p("cant cd");
         }
-    } else {
+    } else if(cmd == "symlink") {
+        string fname = args.operator[](0);
+        string fname_sym = args.operator[](1);
+        if(!fs->symlink(fname, fname_sym)) {
+            p("not successfull linking");
+        } {
+            p("successfully created link");
+        }
+    } else if(cmd == "rmdir") {
+        string fname = args.operator[](0);
+        if(fs->rmdir(fname)) {
+            p("dir successfully removed");
+        } else {
+            p("cant remove dir");
+        }
+    }
+    else {
         p("not found cmd");
     }
 }
